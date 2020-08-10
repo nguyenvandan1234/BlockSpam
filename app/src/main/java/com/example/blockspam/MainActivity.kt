@@ -6,22 +6,35 @@ import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Build.VERSION
 import android.os.Bundle
 import android.provider.BlockedNumberContract.BlockedNumbers
 import android.telecom.TelecomManager
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat.startActivity
 
 
 class MainActivity : AppCompatActivity() {
     val REQUEST_CODE_SET_DEFAULT_DIALER=200
-
+    lateinit var  telecomManager : TelecomManager;
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        checkDefaultDialer()
+        this.telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+        if (applicationContext.packageName != this.telecomManager.getDefaultDialerPackage()) {
+            try {
+                setDefaultDialer(this.telecomManager)
+            } catch (unused: Exception) {
+            }
+        } else {
+            getAllNumberBlock()
+//            putNumberBlock(applicationContext, "1234")
+            //startActivity(telecomManager.createManageBlockedNumbersIntent(), null);
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
@@ -40,24 +53,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
-    fun getAllNumberBlock(context: Context, number: String) {
+    fun getAllNumberBlock() {
         val c: Cursor? = contentResolver.query(BlockedNumbers.CONTENT_URI, arrayOf(BlockedNumbers.COLUMN_ID,
                 BlockedNumbers.COLUMN_ORIGINAL_NUMBER,
                 BlockedNumbers.COLUMN_E164_NUMBER), null, null, null)
+        if (c != null) {
+            c.moveToFirst()
+            do {
+                Log.d("dannvb", c.getString(1))
+            }
+            while (c.moveToNext())
+        };
+
     }
 
-    private fun checkDefaultDialer() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
-            return
-
-        val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-        val isAlreadyDefaultDialer = packageName == telecomManager.defaultDialerPackage
-        if (isAlreadyDefaultDialer)
-            return
-        
-        val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER)
-                .putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName)
-        startActivityForResult(intent, REQUEST_CODE_SET_DEFAULT_DIALER)
+    fun setDefaultDialer(telecomManager2: TelecomManager) {
+        if (VERSION.SDK_INT >= 24 && packageName != telecomManager2.defaultDialerPackage) {
+            startActivityForResult(
+                Intent("android.telecom.action.CHANGE_DEFAULT_DIALER").putExtra(
+                    "android.telecom.extra.CHANGE_DEFAULT_DIALER_PACKAGE_NAME",
+                    packageName
+                ), 100
+            )
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
