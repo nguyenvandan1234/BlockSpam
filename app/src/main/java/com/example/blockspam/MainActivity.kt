@@ -1,5 +1,7 @@
 package com.example.blockspam
 
+import android.app.AlertDialog
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -12,16 +14,13 @@ import android.provider.BlockedNumberContract.BlockedNumbers
 import android.provider.CallLog
 import android.provider.ContactsContract
 import android.telecom.TelecomManager
+import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 
@@ -105,7 +104,11 @@ class MainActivity : AppCompatActivity() {
         })
 
         fab_insert_from_mess.setOnClickListener(View.OnClickListener {
-            getSMSCOnversationlist()
+            getAllSms()
+        })
+
+        fab_insert_from_number.setOnClickListener(View.OnClickListener {
+            addInputNumber()
         })
     }
 
@@ -205,6 +208,86 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
+    private fun addInputNumber() {
+        val builder =
+            AlertDialog.Builder(this)
+        builder.setTitle("Title")
+
+        val input = EditText(this)
+        input.setInputType(InputType.TYPE_CLASS_NUMBER)
+        builder.setView(input)
+        builder.setNegativeButton(android.R.string.yes) { _,_ ->
+            putNumberBlock(applicationContext, input.text.toString())
+            mListNumber.add(input.text.toString());
+            numberAdapter.notifyDataSetChanged();
+        }
+
+        builder.setPositiveButton(android.R.string.cancel) { _,_ ->
+            Toast.makeText(applicationContext,
+                android.R.string.cancel, Toast.LENGTH_SHORT).show()
+        }
+        builder.show()
+    }
+
+    fun getAllSms(): List<String>? {
+        var listNumber : MutableList<String>;
+        listNumber = mutableListOf()
+        val lstSms: List<String> = ArrayList<String>()
+        val message = Uri.parse("content://sms/")
+        val cr: ContentResolver = applicationContext.getContentResolver()
+        val c: Cursor? = cr.query(message, null, null, null, null)
+        if (c != null && c.moveToFirst()) {
+            val totalSMS = c.count
+            for (i in 0 until totalSMS) {
+                try {
+                    var s = c.getString(c.getColumnIndexOrThrow("address"))
+                    try {
+                        if (s.get(1).toInt() > 0) {
+                            if (!listNumber.contains(s)) {
+                                listNumber.add(s)
+                            }
+                        }
+                    } catch (e: Exception) {
+
+                    }
+                } catch (e : Exception) {
+
+                }
+                c.moveToNext()
+            }
+        }
+        if (listNumber.size > 0) {
+            val arrayAdapter = ArrayAdapter<String>(
+                this@MainActivity,
+                android.R.layout.select_dialog_item
+            )
+
+
+            for (s in listNumber) {
+                arrayAdapter.add(s)
+            }
+            val builderSingle: AlertDialog.Builder = AlertDialog.Builder(this@MainActivity)
+            builderSingle.setIcon(R.drawable.ic_baseline_call_24)
+            builderSingle.setTitle("Select One Name:-")
+            builderSingle.setAdapter(arrayAdapter) { dialog, which ->
+                var number = arrayAdapter.getItem(which)
+                Toast.makeText(applicationContext, number, Toast.LENGTH_LONG).show()
+                if (number != null) {
+                    putNumberBlock(applicationContext, number)
+                    mListNumber.add(number)
+                    numberAdapter.notifyDataSetChanged()
+                };
+            }
+            builderSingle.show()
+        }
+        // else {
+        // throw new RuntimeException("You have no SMS");
+        // }
+        if (c != null) {
+            c.close()
+        }
+        return lstSms
+    }
     companion object {
         lateinit var numberAdapter: RowAdapter;
 
